@@ -36,7 +36,7 @@ function dr-update-env {
     export DR_RUN_ID=0
   fi
 
-  if [[ "${DR_DOCKER_STYLE,,}" == "swarm" ]];
+  if [[ "${DR_DOCKER_STYLE}" == "swarm" ]];
   then
     export DR_ROBOMAKER_TRAIN_PORT=$(expr 8080 + $DR_RUN_ID)
     export DR_ROBOMAKER_EVAL_PORT=$(expr 8180 + $DR_RUN_ID)
@@ -55,7 +55,15 @@ export DR_DIR=$DIR
 
 if [[ -f "$1" ]];
 then
-  export DR_CONFIG=$(readlink -f $1)
+  if readlink -f /dev/null >/dev/null 2>&1;
+  then
+    export DR_CONFIG=$(readlink -f $1)
+  elif stat -f "%N" /dev/null >/dev/null 2>&1;
+  then
+    export DR_CONFIG=$(stat -f "%N" $1)
+  else
+    export DR_CONFIG=$1
+  fi
   dr-update-env
 elif [[ -f "$DIR/run.env" ]];
 then
@@ -77,7 +85,7 @@ if [[ -z "${DR_DOCKER_STYLE}" ]]; then
   export DR_DOCKER_STYLE="swarm"
 fi
 
-if [[ "${DR_DOCKER_STYLE,,}" == "swarm" ]];
+if [[ "${DR_DOCKER_STYLE}" == "swarm" ]];
 then
   export DR_DOCKER_FILE_SEP="-c"
   SWARM_NODE=$(docker node inspect self | jq .[0].ID -r)
@@ -87,7 +95,7 @@ else
 fi
 
 # Prepare the docker compose files depending on parameters
-if [[ "${DR_CLOUD,,}" == "azure" ]];
+if [[ "${DR_CLOUD}" == "azure" ]];
 then
     export DR_LOCAL_S3_ENDPOINT_URL="http://localhost:9000"
     export DR_MINIO_URL="http://minio:9000"
@@ -95,7 +103,7 @@ then
     DR_TRAIN_COMPOSE_FILE="$DR_DOCKER_FILE_SEP $DIR/docker/docker-compose-training.yml $DR_DOCKER_FILE_SEP $DIR/docker/docker-compose-endpoint.yml"
     DR_EVAL_COMPOSE_FILE="$DR_DOCKER_FILE_SEP $DIR/docker/docker-compose-eval.yml $DR_DOCKER_FILE_SEP $DIR/docker/docker-compose-endpoint.yml"
     DR_MINIO_COMPOSE_FILE="$DR_DOCKER_FILE_SEP $DIR/docker/docker-compose-azure.yml"
-elif [[ "${DR_CLOUD,,}" == "local" ]];
+elif [[ "${DR_CLOUD}" == "local" ]];
 then
     export DR_LOCAL_S3_ENDPOINT_URL="http://localhost:9000"
     export DR_MINIO_URL="http://minio:9000"
@@ -103,7 +111,7 @@ then
     DR_TRAIN_COMPOSE_FILE="$DR_DOCKER_FILE_SEP $DIR/docker/docker-compose-training.yml $DR_DOCKER_FILE_SEP $DIR/docker/docker-compose-endpoint.yml"
     DR_EVAL_COMPOSE_FILE="$DR_DOCKER_FILE_SEP $DIR/docker/docker-compose-eval.yml $DR_DOCKER_FILE_SEP $DIR/docker/docker-compose-endpoint.yml"
     DR_MINIO_COMPOSE_FILE="$DR_DOCKER_FILE_SEP $DIR/docker/docker-compose-local.yml"
-elif [[ "${DR_CLOUD,,}" == "remote" ]];
+elif [[ "${DR_CLOUD}" == "remote" ]];
 then
     export DR_LOCAL_S3_ENDPOINT_URL="$DR_REMOTE_MINIO_URL"
     export DR_MINIO_URL="$DR_REMOTE_MINIO_URL"
@@ -118,21 +126,21 @@ else
 fi
 
 # Prevent docker swarms to restart
-if [[ "${DR_HOST_X,,}" == "true" ]];
+if [[ "${DR_HOST_X}" == "true" ]];
 then
     DR_TRAIN_COMPOSE_FILE="$DR_TRAIN_COMPOSE_FILE $DR_DOCKER_FILE_SEP $DIR/docker/docker-compose-local-xorg.yml"
     DR_EVAL_COMPOSE_FILE="$DR_EVAL_COMPOSE_FILE $DR_DOCKER_FILE_SEP $DIR/docker/docker-compose-local-xorg.yml"
 fi
 
 # Prevent docker swarms to restart
-if [[ "${DR_DOCKER_STYLE,,}" == "swarm" ]];
+if [[ "${DR_DOCKER_STYLE}" == "swarm" ]];
 then
     DR_TRAIN_COMPOSE_FILE="$DR_TRAIN_COMPOSE_FILE $DR_DOCKER_FILE_SEP $DIR/docker/docker-compose-training-swarm.yml"
     DR_EVAL_COMPOSE_FILE="$DR_EVAL_COMPOSE_FILE $DR_DOCKER_FILE_SEP $DIR/docker/docker-compose-eval-swarm.yml"
 fi
 
 # Enable logs in CloudWatch
-if [[ "${DR_CLOUD_WATCH_ENABLE,,}" == "true" ]]; then
+if [[ "${DR_CLOUD_WATCH_ENABLE}" == "true" ]]; then
     DR_TRAIN_COMPOSE_FILE="$DR_TRAIN_COMPOSE_FILE $DR_DOCKER_FILE_SEP $DIR/docker/docker-compose-cwlog.yml"
     DR_EVAL_COMPOSE_FILE="$DR_EVAL_COMPOSE_FILE $DR_DOCKER_FILE_SEP $DIR/docker/docker-compose-cwlog.yml"
 fi
@@ -159,7 +167,7 @@ if [[ -n "${DR_MINIO_COMPOSE_FILE}" ]]; then
     export MINIO_USERNAME=$(id -u -n)
     export MINIO_GID=$(id -g)
     export MINIO_GROUPNAME=$(id -g -n)
-    if [[ "${DR_DOCKER_STYLE,,}" == "swarm" ]];
+    if [[ "${DR_DOCKER_STYLE}" == "swarm" ]];
     then
         docker stack deploy $DR_MINIO_COMPOSE_FILE s3
     else
