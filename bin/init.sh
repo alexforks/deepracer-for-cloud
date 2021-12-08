@@ -86,36 +86,36 @@ cp $INSTALL_DIR/defaults/template-run.env $INSTALL_DIR/run.env
 if [[ "${OPT_CLOUD}" == "aws" ]]; then
     AWS_EC2_AVAIL_ZONE=`curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone`
     AWS_REGION="`echo \"$AWS_EC2_AVAIL_ZONE\" | sed 's/[a-z]$//'`"
-    sed -i "s/<AWS_DR_BUCKET>/not-defined/g" $INSTALL_DIR/system.env
-    sed -i "s/<LOCAL_PROFILE>/default/g" $INSTALL_DIR/system.env
+    xsh /util/sed-inplace "s/<AWS_DR_BUCKET>/not-defined/g" $INSTALL_DIR/system.env
+    xsh /util/sed-inplace "s/<LOCAL_PROFILE>/default/g" $INSTALL_DIR/system.env
 elif [[ "${OPT_CLOUD}" == "azure" ]]; then
     AWS_REGION="us-east-1"
-    sed -i "s/<LOCAL_PROFILE>/azure/g" $INSTALL_DIR/system.env
-    sed -i "s/<AWS_DR_BUCKET>/not-defined/g" $INSTALL_DIR/system.env
+    xsh /util/sed-inplace "s/<LOCAL_PROFILE>/azure/g" $INSTALL_DIR/system.env
+    xsh /util/sed-inplace "s/<AWS_DR_BUCKET>/not-defined/g" $INSTALL_DIR/system.env
     echo "Please run 'aws configure --profile azure' to set the credentials"
 elif [[ "${OPT_CLOUD}" == "remote" ]]; then
     AWS_REGION="us-east-1"
-    sed -i "s/<LOCAL_PROFILE>/minio/g" $INSTALL_DIR/system.env
-    sed -i "s/<AWS_DR_BUCKET>/not-defined/g" $INSTALL_DIR/system.env
+    xsh /util/sed-inplace "s/<LOCAL_PROFILE>/minio/g" $INSTALL_DIR/system.env
+    xsh /util/sed-inplace "s/<AWS_DR_BUCKET>/not-defined/g" $INSTALL_DIR/system.env
     echo "Please run 'aws configure --profile minio' to set the credentials"
     echo "Please define DR_REMOTE_MINIO_URL in system.env to point to remote minio instance."
 else
     AWS_REGION="us-east-1"
-    sed -i "s/<LOCAL_PROFILE>/minio/g" $INSTALL_DIR/system.env
-    sed -i "s/<AWS_DR_BUCKET>/not-defined/g" $INSTALL_DIR/system.env
+    xsh /util/sed-inplace "s/<LOCAL_PROFILE>/minio/g" $INSTALL_DIR/system.env
+    xsh /util/sed-inplace "s/<AWS_DR_BUCKET>/not-defined/g" $INSTALL_DIR/system.env
     echo "Please run 'aws configure --profile minio' to set the credentials"
 fi
-sed -i "s/<AWS_DR_BUCKET_ROLE>/to-be-defined/g" $INSTALL_DIR/system.env
-sed -i "s/<CLOUD_REPLACE>/$OPT_CLOUD/g" $INSTALL_DIR/system.env
-sed -i "s/<REGION_REPLACE>/$AWS_REGION/g" $INSTALL_DIR/system.env
+xsh /util/sed-inplace "s/<AWS_DR_BUCKET_ROLE>/to-be-defined/g" $INSTALL_DIR/system.env
+xsh /util/sed-inplace "s/<CLOUD_REPLACE>/$OPT_CLOUD/g" $INSTALL_DIR/system.env
+xsh /util/sed-inplace "s/<REGION_REPLACE>/$AWS_REGION/g" $INSTALL_DIR/system.env
 
 
 if [[ "${OPT_ARCH}" == "gpu" ]]; then
-    SAGEMAKER_TAG="gpu"   
+    SAGEMAKER_TAG="gpu"
 elif [[ -n "${CPU_INTEL}" ]]; then
-    SAGEMAKER_TAG="cpu-avx-mkl" 
+    SAGEMAKER_TAG="cpu-avx-mkl"
 else
-    SAGEMAKER_TAG="cpu" 
+    SAGEMAKER_TAG="cpu"
 fi
 
 #set proxys if required
@@ -130,23 +130,23 @@ done
 
 # Download docker images. Change to build statements if locally built images are desired.
 COACH_VERSION=$(jq -r '.containers.rl_coach | select (.!=null)' $INSTALL_DIR/defaults/dependencies.json)
-sed -i "s/<COACH_TAG>/$COACH_VERSION/g" $INSTALL_DIR/system.env
+xsh /util/sed-inplace "s/<COACH_TAG>/$COACH_VERSION/g" $INSTALL_DIR/system.env
 
 ROBOMAKER_VERSION=$(jq -r '.containers.robomaker  | select (.!=null)' $INSTALL_DIR/defaults/dependencies.json)
 if [ -n $ROBOMAKER_VERSION ]; then
     ROBOMAKER_VERSION=$ROBOMAKER_VERSION-$CPU_LEVEL
-else   
+else
     ROBOMAKER_VERSION=$CPU_LEVEL
 fi
-sed -i "s/<ROBO_TAG>/$ROBOMAKER_VERSION/g" $INSTALL_DIR/system.env
+xsh /util/sed-inplace "s/<ROBO_TAG>/$ROBOMAKER_VERSION/g" $INSTALL_DIR/system.env
 
 SAGEMAKER_VERSION=$(jq -r '.containers.sagemaker  | select (.!=null)' $INSTALL_DIR/defaults/dependencies.json)
 if [ -n $SAGEMAKER_VERSION ]; then
     SAGEMAKER_VERSION=$SAGEMAKER_VERSION-$SAGEMAKER_TAG
-else   
+else
     SAGEMAKER_VERSION=$SAGEMAKER_TAG
 fi
-sed -i "s/<SAGE_TAG>/$SAGEMAKER_VERSION/g" $INSTALL_DIR/system.env
+xsh /util/sed-inplace "s/<SAGE_TAG>/$SAGEMAKER_VERSION/g" $INSTALL_DIR/system.env
 
 docker pull awsdeepracercommunity/deepracer-rlcoach:$COACH_VERSION
 docker pull awsdeepracercommunity/deepracer-robomaker:$ROBOMAKER_VERSION
@@ -154,6 +154,7 @@ docker pull awsdeepracercommunity/deepracer-sagemaker:$SAGEMAKER_VERSION
 
 # create the network sagemaker-local if it doesn't exit
 SAGEMAKER_NW='sagemaker-local'
+docker swarm leave --force
 docker swarm init
 SWARM_NODE=$(docker node inspect self | jq .[0].ID -r)
 docker node update --label-add Sagemaker=true $SWARM_NODE
