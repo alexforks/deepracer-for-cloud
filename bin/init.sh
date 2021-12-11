@@ -154,7 +154,6 @@ docker pull awsdeepracercommunity/deepracer-sagemaker:$SAGEMAKER_VERSION
 
 # create the network sagemaker-local if it doesn't exit
 SAGEMAKER_NW='sagemaker-local'
-docker swarm leave --force
 docker swarm init
 SWARM_NODE=$(docker node inspect self | jq .[0].ID -r)
 docker node update --label-add Sagemaker=true $SWARM_NODE
